@@ -1,0 +1,92 @@
+---
+title: "razimuth: user guide"
+author:
+date:
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 1
+vignette: >
+  %\VignetteIndexEntry{razimuth: user guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+<style>
+img {
+    max-width: 100%;
+    max-height: 100%;
+}
+</style>
+
+## Installation
+Prior to installation, ensure a compiler (`Rtools` for Windows, `gfortran` for macOS) has been associated with R. To install the package, execute the following via the command line
+
+```
+R CMD INSTALL razimuth_0.1.0.tar.gz
+```
+If a dependency is not available, install package and then rerun the above command.
+
+## Example dataset
+To begin, use the package's `sim_atd()` function to simulate an example azimuthal telemetry dataset.
+
+```{r, echo = FALSE}
+library(razimuth)
+```
+```{r}
+set.seed(3141)
+grouse <- sim_atd(n_loc = 100, sq_km = 4, n_azimuth = 3, dist_vec = c(200,300), 
+                  kappa_sim = 50, prior_r = 1000, plot = FALSE)$sim_df
+head(x = grouse, n = 3)
+```
+
+`grouse` represents a typical azimuthal telemetry dataset with the likely exception of the `prior_r` column. In this framework, the quantity `prior_r` is defined as the maximum distance (in meters) between the observer and the transmitter prior to taking the azimuth. This quantity will likely be derived from a combination of situational factors such as user experience level and/or landscape topography. In cases where this information was not obtained during data collection, the user must still specify an upper bound for each azimuth.  
+
+The function `convert_atm()` is used to convert the data frame into a list object necessary for subsequent plotting and model fitting.
+
+```{r}
+grouse_atm <- convert_atm(df = grouse)
+```
+
+The function `visualize_atm()` can be used to explore the geometry of each individual relocation attempt.
+
+```{r, out.width = '80%', fig.align = 'center', fig.height = 7, fig.width = 7}
+visualize_atm(atm_df = grouse_atm, obs_id = 93, add_prior = T)
+```
+
+The `atm_mcmc()` function is used to fit the Azimuthal Telemetry Model (ATM) using Markov Chain Monte Carlo. 
+
+```{r, hide = T}
+atm_fit <- atm_mcmc(atm_df = grouse_atm, n_mcmc = 11000, n_burn = 1000)
+```
+
+The resulting object `atm_fit` contains the following model output:
+
+* `mu_ls` - list of lists corresponding to each relocation attempt. Each list contains information about the relocation: identifier (`pid`), date (`date`), posterior mode (`pmode`), and a matrix containing the posterior draws (`pdraws`).
+* `kappa_ls` - list containing information concerning the concentration parameter kappa: acceptance rate (`acceptance`), posterior draws (`pdraws`), and tuning parameter values from the adaptive tuning performed during burn in (`tuning`).
+* `pmode_mat` - matrix containing the posterior modes for each relocation.
+
+For plotting model output associated with a particular relocation, the helper function `which_pid()` is used to identify the list within `mu_ls` or row number of `pmode_mat` associated with the specified relocation identifier (`obs_id`). To plot posterior credible isopleths, use the `p_isopleth()` function.
+```{r, out.width = '80%', fig.align = 'center', fig.height = 7, fig.width = 7}
+id_tmp <- which_pid(atm_df = grouse_atm, obs_id = 93)
+visualize_atm(atm_df = grouse_atm, obs_id = id_tmp, add_prior = TRUE)
+p_isopleth(df = atm_fit$mu_ls[[id_tmp]]$pdraws, prob_lvls = c(0.5,0.9), range_extend = 0,
+           kde_n = 50, col_vec = c(4,4))
+points(matrix(atm_fit$pmode[id_tmp, 2:3], ncol = 2), pch = 21, bg = 4)
+legend("topleft", c("Posterior Mode"), pch = 21, pt.bg = 4, bty = "n")
+```
+
+Plotting transmitter location posterior draws using a color scale such as `viridis` (from the `viridis` R package) helps to visualize 2-dimensional mixing. 
+
+```{r, out.width = '80%', fig.align = 'center', fig.height = 7, fig.width = 7}
+visualize_atm(atm_df = grouse_atm, obs_id = id_tmp, add_prior = T, add_legend = F)
+points(atm_fit$mu_ls[[id_tmp]]$pdraws, pch = 20,
+       col = viridis::viridis(n = nrow(atm_fit$mu_ls[[id_tmp]]$pdraws)))
+```
+
+To assess convergence of the concentration parameter kappa, the `plot_kappa()` provides the following diagnostics per the `item` argument: traceplot (`traceplot`), posterior kernel density estimate (`density`), tuning parameter update trace (`tuning`), and running mean plot (`run_mean`).
+
+```{r, out.width = '80%', fig.align = 'center', fig.height = 7, fig.width = 10}
+plot_kappa(atm_obj = atm_fit$kappa_ls, item = "traceplot")
+plot_kappa(atm_obj = atm_fit$kappa_ls, item = "run_mean")
+```

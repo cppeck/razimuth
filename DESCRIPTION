@@ -1,0 +1,29 @@
+Package: razimuth
+Title: VHF Transmitter Location Estimation
+Version: 0.1.0
+Authors@R: person("Christopher", "Peck", email = "christopher.p.peck@gmail.com",
+                  role = c("aut", "cre"))
+Description: Very high frequency (VHF) transmitter location estimation using the azimuthal telemetry model (ATM) presented in the paper entitled: Accounting for location uncertainty in azimuthal telemetry data improves ecological inference by Gerber et al (in review).
+License: GPL-3
+Encoding: UTF-8
+LazyData: false
+Depends:
+    R (>= 2.10)
+Imports: 
+    Rcpp,
+    RcppArmadillo,
+    truncdist,
+    circular,
+    nleqslv,
+    mgcv,
+    CircStats
+LinkingTo:
+    Rcpp,
+    RcppArmadillo
+RoxygenNote: 6.0.1
+Suggests: 
+    knitr,
+    rmarkdown,
+    viridis,
+    MASS
+VignetteBuilder: knitr
