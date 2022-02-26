@@ -176,7 +176,7 @@ bearing_int_avg <- function(obs_pts, theta){
 
   ui <- which(keep == 1)
   if(sum(ui) != 0){
-    int_mat <- int_mat[ui,]
+    int_mat <- int_mat[ui,,drop = FALSE]
     int_avg <- apply(int_mat, 2, mean)
   } else{
     int_avg <- apply(t(obs_pts), 2, mean)
